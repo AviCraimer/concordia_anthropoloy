@@ -11,7 +11,7 @@ dependencies = [
   "python-dotenv",
 ]
 description = "Anthropology simulations with the Concordia library"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 name = "concordia_anthropology"
 readme = "README.md"
 requires-python = ">=3.13"
