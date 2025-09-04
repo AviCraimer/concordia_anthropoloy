@@ -1,18 +1,18 @@
 # concordia_anthropology
 
-## Setup
+## Operating Systems
 On Windows use Windows Subsystem for Linux (WSL) for project.
-On MaxOS or Linux OS everything should just work.
+On macOS or Linux OS everything should just work.
 
+## Setup
 1. Install Python 3.13 (e.g., via pyenv)
 2. Run: `make setup` to
     - Create venv
     - Install dependencies and build package
-    - Install dev depedencies
+    - Install dev dependencies
 
 ## Build Project
-
-After setup to re-build the package run `make build`
+After initial setup re-build the package only with `make build`
 
 ## Run Project
 `make run`
@@ -20,7 +20,7 @@ After setup to re-build the package run `make build`
 ## Type Checking (Pylance/Pyright)
 - VScode: Install the pylance extension.
 - Commandline checking: `make types`
-- Config: `pyrightconfig.json`.
+- Config is in `pyrightconfig.json`.
 
 
 ## Tests & Lint

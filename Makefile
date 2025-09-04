@@ -17,7 +17,7 @@ dev_deps:
 
 
 # Run to set up initally.
-setup: venv build dev_deps
+setup: venv dev_deps
 
 run:
 	$(VENV)/bin/concordia-anth
