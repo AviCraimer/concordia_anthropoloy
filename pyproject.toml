@@ -1,0 +1,35 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=69", "wheel"]
+
+[project]
+authors = [{name = "ESOTERIC Lab at Indiana University Bloomington"}]
+dependencies = [
+  "requests",
+  "pydantic>=2",
+  "gdm-concordia",
+  "python-dotenv",
+]
+description = "Anthropology simulations with the Concordia library"
+license = {text = "MIT"}
+name = "concordia_anthropology"
+readme = "README.md"
+requires-python = ">=3.13"
+version = "0.1.0"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+  "pyright",
+]
+
+[project.scripts]
+concordia-anth = "concordia_anthropology.main:main"
+
+[tool.setuptools]
+packages = {find = {where = ["src"]}}
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
