@@ -10,7 +10,7 @@ from concordia.typing.entity import ActionSpec, OutputType
 from dataclasses import dataclass, asdict
 from concordia.environment.engines import sequential
 from concordia.components.game_master.make_observation import DEFAULT_CALL_TO_MAKE_OBSERVATION
-
+from concordia.environment.engine import action_spec_to_string
 
 # ---- Types
 
@@ -30,7 +30,10 @@ stages = ("present_proposal", "observe_votes", "voting", "finished")
 
 
 
+
 # --- Utility ---
+
+
 # Gets the initial dictionary of player's hands, with all hands down
 def get_init_votes (players: list[str]) -> dict[str, VoteStatus]:
     hands : dict[str,VoteStatus] = {}
@@ -58,8 +61,16 @@ OutputTypeLiteral = Literal["free",
 def outputType(type: OutputTypeLiteral) -> OutputType:
    return OutputType(type)
 
-
-cast(OutputType, OutputType.FREE)
+def action_spec_str(cta: str = "", choice_options: Optional[list[str]] = None) -> str:
+    if not cta:
+        return action_spec_to_string( ActionSpec(call_to_action="", output_type=outputType("skip_this_step")))
+    elif not choice_options:
+        return action_spec_to_string( ActionSpec(call_to_action=cta, output_type=outputType("free")))
+    else:
+        stripped_options = [o.strip() for o in choice_options]
+        return action_spec_to_string(
+        ActionSpec(call_to_action=cta, options=stripped_options, output_type=outputType("choice") )
+    )
 
 
 # State
@@ -161,6 +172,8 @@ def entity_name_from_make_observation_CTA(call: str) -> str:
     raise ValueError()
 
 
+
+# Stages
 StageAction = Literal["make_observation","next_acting","next_action_spec",]
 
 class StageComponent():
@@ -209,7 +222,7 @@ class PresentProposalStage(ComponentWithLogging, StageComponent):
                 observation_str : str
                 player = entity_name_from_make_observation_CTA(call_to_action)
                 if player == state.chair and state.chair in state.remaining_in_stage_to_observe:
-                    observation_str = """It is time now for you to present the proposal for voting. Please clearly state the proposed course of action for everybody to listen."""
+                    observation_str = """It is time now for you to present the proposal for voting."""
                     state.record_player_completion_for_stage(player, "observe")
                 elif player in state.remaining_in_stage_to_observe and state.proposal_description != "":
                     observation_str = f"""{state.chair} reads out the proposal that you are being asked to vote on: \n {state.proposal_description}"""
@@ -226,11 +239,27 @@ class PresentProposalStage(ComponentWithLogging, StageComponent):
                     return ""
 
             case "next_action_spec":
-                # TODO - What kind of string do I need to return for an action spec?
-                pass
+                if state.chair in state.remaining_in_stage_to_act and state.chair not in state.remaining_in_stage_to_observe:
+                    # Update state to indicate that chair has acted
+                    state.record_player_completion_for_stage(state.chair, 'act')
+                    return action_spec_str("Clearly state the proposed course of action that people are about to vote on.")
         return ""
 
+def vote_change_str (prev: Literal['up', 'down'], current: Literal['up','down'], voter: str, player: str ):
+        own_vote = player == voter
+        possessive_subject = "Your" if own_vote else f"{voter}'s"
 
+        res = ""
+        match (prev, current):
+            case ("up", "up"):
+                res = f"{possessive_subject} hand is up and is voting to adopt the proposal"
+            case ("down", "up"):
+                res = "You raised a hand and are now voting to adopt the proposal" if own_vote else f"{voter} raised a hand and is now voting to adopt the proposal"
+            case ("up", "down"):
+                res = "You lowered your hand and are now voting not to adopt the proposal" if own_vote else f"{voter} lowered their hand and are now voting to not to adopt the proposal"
+            case ("down", "down"):
+                res = f"{possessive_subject} hand is down and is voting not to adopt the proposal"
+        return res
 
 class ObserveVotesStage (ComponentWithLogging, StageComponent):
     state: VotingState
@@ -262,11 +291,22 @@ class ObserveVotesStage (ComponentWithLogging, StageComponent):
             return "finished"
 
 
+
     def get_votes_observation(self, player: str) -> str:
         state = self.state
-        assert player in state.players
-        # TODO: Implement the get_votes_observation_method
-        return ""
+        current_votes = state.current_votes
+        prev_votes = state.prev_votes
+        observation_str = "You look around and see how everybody voted:\n"
+
+        for voter, vote in current_votes.items():
+            if prev_votes and prev_votes[voter]:
+                observation_str += vote_change_str(prev_votes[voter], vote, voter, player) + "\n"
+            else:
+                # If there are no previous votes, we assume that all hands start down.
+                observation_str += vote_change_str("down", vote, voter, player) + "\n"
+        return observation_str
+
+
 
     def get_action_string(self, action_type: StageAction, call_to_action: str) -> str:
         state = self.state
@@ -277,10 +317,10 @@ class ObserveVotesStage (ComponentWithLogging, StageComponent):
                 state.record_player_completion_for_stage(player, "both")
                 return self.get_votes_observation(player)
             case "next_acting":
-                    return "" # No one acts
+                return ""
             case "next_action_spec":
-                return "" # No one acts
-
+                    # Nobody acts in this stage.
+                    return
 
 
 
@@ -291,8 +331,27 @@ class Voting (ComponentWithLogging, StageComponent):
     def __init__(self, state: VotingState):
         self.state = state
 
-    def get_action_string(self, action_spec: ActionSpec):
-        return ""
+    def should_end_stage(self) ->Optional[Stage]:
+        pass
+
+    def get_action_string(self, action_type: StageAction, call_to_action: str) -> str:
+        state = self.state
+        match action_type:
+            case "make_observation":
+                player = entity_name_from_make_observation_CTA(call_to_action)
+                # Players don't act in this stage so we record completion for both obsevering and acting
+                state.record_player_completion_for_stage(player, "both")
+                return self.get_votes_observation(player)
+            case "next_acting":
+                return state.next_player('act')
+            case "next_action_spec":
+                # TODO: write function to parse next action spec CTA
+                player : str  = entity_name_from_next_action_spec(call_to_action)
+                hand = state.current_votes[player]
+                cta = f"You are a voting whether to adopt the proposal. Currently your hand is {hand}. You may keep it {hand} or {"lower" if hand == 'up' else "raise"} it."
+                oType = outputType("choice")
+                return ActionSpec(cts, oType)
+
 
 class FinishedVoting (ComponentWithLogging, StageComponent):
     state: VotingState
