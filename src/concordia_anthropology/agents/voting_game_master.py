@@ -151,6 +151,7 @@ class VotingState:
             self.current_votes[player] = vote
             self.record_player_completion_for_stage(player)
 
+
     def next_player(self, act_observe: Literal["act", "observe"]) -> Optional[str]:
         if act_observe == "act":
             return head(self.remaining_in_stage_to_act)
@@ -333,14 +334,15 @@ class VotingStage (StageComponent, ComponentWithLogging):
 
         vote = state.current_votes[actor] # Start with
         if "no change" in text or "do nothing" in text:
-            return
+            pass
         elif "raise" in text:
             vote = "up"
         elif "lower" in text:
             vote = "down"
         else:
             pass
-        state.record_vote(actor, vote)
+        state.record_vote(actor, vote) # record_vote also records player completion for the stage
+
 
     def set_prev_votes(self):
         state = self.state
@@ -388,7 +390,7 @@ class VotingStage (StageComponent, ComponentWithLogging):
                         options = ["no change", "lower hand"]
                     else:
                         options = ["no change", "raise hand"]
-                return action_spec_str( cta, options) # choice action spec
+                return action_spec_str( cta, options) # choice action spec string
 
 
 class ObserveVotesStage (StageComponent, ComponentWithLogging):
