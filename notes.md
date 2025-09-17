@@ -9,7 +9,7 @@
 
 - - What kind of string do I need to return for an action spec?
 
-
+- When handing off to the next game master, how do we give the game master information about what happened in the voting?
 
 
 
